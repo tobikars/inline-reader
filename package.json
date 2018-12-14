@@ -1,0 +1,17 @@
+{
+  "license": "UNLICENSED",
+  "name": "inline-reader",
+  "scripts": {
+    "start": "node index.js",
+    "start-rust" : "./serialread-rs /dev/tty.usbmodem18173B6DE11 115200 2>&1 | tee scans.txt",
+    "showport": "ioreg -p IOUSB -l -b | grep -E \"@|PortNum|USB Serial Number\"; ls /dev/tty.usbmodem18173B6DE11",
+    "listport": "ls /dev/tty.usbmodem18173B6DE11",
+    "win_install" : "npm install -g serialport --build-from-source",
+    "build" : "rm build/inline.tgz;tar -cvzf build/inline.tgz index.js package.json",
+    "clean" : "rm ./build/*; rm ./scans/*"
+  },
+  "dependencies": {
+    "moment": "^2.23.0",
+    "serialport": "^7.1.0"
+  }
+}
