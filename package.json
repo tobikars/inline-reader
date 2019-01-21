@@ -3,14 +3,17 @@
   "name": "inline-reader",
   "scripts": {
     "start": "node index.js",
-    "start-rust" : "./serialread-rs /dev/tty.usbmodem18173B6DE11 115200 2>&1 | tee scans.txt",
+    "start-rust": "./serialread-rs /dev/tty.usbmodem18173B6DE11 115200 2>&1 | tee scans.txt",
     "showport": "ioreg -p IOUSB -l -b | grep -E \"@|PortNum|USB Serial Number\"; ls /dev/tty.usbmodem18173B6DE11",
-    "listport": "ls /dev/tty.usbmodem18173B6DE11",
-    "win_install" : "npm install -g serialport --build-from-source",
-    "build" : "rm build/inline.tgz;tar -cvzf build/inline.tgz index.js package.json",
-    "clean" : "rm ./build/*; rm ./scans/*"
+    "ports": "serialport-terminal -l",
+    "win_install": "npm install -g serialport --build-from-source",
+    "build": "rm build/inline.tgz;tar -cvzf build/inline.tgz index.js package.json",
+    "clean": "rm ./build/*; rm ./scans/*"
   },
   "dependencies": {
+    "colors": "^1.3.3",
+    "command-line-usage": "^5.0.5",
+    "commander": "^2.19.0",
     "moment": "^2.23.0",
     "serialport": "^7.1.0"
   }
