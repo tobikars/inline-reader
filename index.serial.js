@@ -1,16 +1,15 @@
-const net = require('net');
-//192.168.3.100 51236
-
 const SerialPort = require('serialport')
 // pass the Serialport path based on your environment: 
 // mac: /dev/tty.usbmodem18173B6DE11
 // win: COM1 (or COM2, COM3 etc.)
 // /dev/tty.usbmodemC17F020363  Datalogic
+
+
 const Delimiter = require('@serialport/parser-delimiter')
 
-const SERIAL = false; // ETH connection, use TCP/IP
-const readerIP =  "192.168.3.100"
-const readerPort = 51236
+
+console.log(Delimiter)
+
 
 // const usage = require('./usage.js').usage
 // console.log(usage)
@@ -28,7 +27,10 @@ function micros(msg) {
 }
 
 const DEFAULTS = {
-    serialport: "/dev/tty.usbmodemC17F020363",
+    // /dev/tty.usbmodem1A1715XN0151481
+    //serialport: "/dev/tty.usbmodemC17F020363",
+    serialport: "/dev/tty.usbmodem1A1715XN0151481",
+    
     adminport: 8080,
     output: "scans/" + moment().format("YYYYMMDD-HHmmss") + "-scans.csv",
     headerlist: "time,url,extended_id,sequence",
@@ -41,7 +43,7 @@ program
     .option('-p, --adminport [port]', 'IP port for the webadmin', DEFAULTS.adminport)
     .option('-o, --output [file]', 'file to log the scans to', DEFAULTS.output )
     .option('--headerlist <headers>', 'format of the headerlist', DEFAULTS.headerlist )
-    .option('--delimiter [delimiter]', 'a single-character delimiter for the fields, or use \"TAB\" for <TAB>s', "TAB" )
+    .option('--delimiter [delimiter]', 'a single-character delimiter for the fields, or use \"TAB\" for <TAB>s', "\t" )
     .option('-d --debug','debug mode')
 program.on('--help', () => {
     console.log('')
@@ -50,7 +52,7 @@ program.on('--help', () => {
 });
 program.parse(process.argv); // get the other arguments
 
-const DEBUG = false || program.debug
+const DEBUG = true || program.debug
 
 if (DEBUG) {
     deb("PROGRAM OPTIONS: " + JSON.stringify(program.opts(), null, 4))
@@ -61,9 +63,8 @@ let serialPort = program.serialport || DEFAULTS.serialport
 let csv_header = program.headerlist || DEFAULTS.headerlist
 let delimiter = program.delimiter || DEFAULTS.delimiter
 
-if (delimiter == "TAB") {
+if (delimiter === "TAB") {
     csv_header = csv_header.replace(/,/g,"\t") + "\n"
-    delimiter = "\t"
 } else {
     csv_header = csv_header.replace(/,/g,delimiter) + "\n"
 }
@@ -74,7 +75,17 @@ const reelCircumference = 0.253
 // load OUP codes
 const reelIds = require('./testReels.js').OUPreel10
 
-const REEL = "OUP" // test mode with rotating fixed reel of either 5 or 10 codes. 
+// const MODE = "OUP" // test mode with rotating fixed reel of either 5 or 10 codes. 
+const MODE = "SERIAL" // just read all the code. 
+//deb('port: ' +  serialPort)
+
+const port = new SerialPort(serialPort, { baudRate: 115200 }, error => {
+    console.log('error: ' + error)
+    require('@serialport/bindings').list().then( (ports) => {
+        console.log("Is your serialport " + colors.bold(serialPort) + " listed below ? : " )
+        console.log(JSON.stringify(ports)) 
+    });
+})
 
 function getExtendedId(qr) {
     const prefix = "HTTPS://ST4.CH/Q/"
@@ -93,56 +104,25 @@ let previousExtendedId = ""
 // write the header to the scans.csv
 fs.appendFileSync(scanFile, csv_header)
 
-if (SERIAL) {
-    // Serial port used
-    const port = new SerialPort(serialPort, { baudRate: 115200 }, error => {
-        console.log(colors.red(error.message))
-        require('@serialport/bindings').list().then( (ports) => {
-            console.log("Is your serialport " + colors.bold(serialPort) + " listed below ? : " )
-            console.log(JSON.stringify(ports, null, 4)) 
-        });
-    })
+const parser = port.pipe(new Delimiter({ delimiter: '\r' }))
 
-    const parser = port.pipe(new Delimiter({ delimiter: '\r' }))
-    port.flush( () => {
-        console.log("Flushed serialport data")
-    })
-    
-    parser.on('data', processData)
-    
-} else {
-    // IP connection
-    const client = new net.Socket();
-    client.connect(readerPort, readerIP, function() {
-        console.log('Connected');
-        //client.write('Hello, server! Love, Client.');
-    });
+port.flush( () => {
+    console.log("Flushed serialport data")
+})
 
-    client.on('data', processData);
-
-    // client.on('data', function(data) {
-    //     console.log('Received: ' + data);
-    //     //client.destroy(); // kill client after server's response
-    // });
-
-    // client.on('close', function() {
-    //     console.log('Connection closed');
-    // });
-
-}
-
-function processData(data) {
+parser.on('data', data => {
+   // deb(data)
     const qr = new String(data).trim().replace("\u0002","")
     const extended_id = getExtendedId(qr)
     const line = micros() + delimiter + qr + delimiter + extended_id + delimiter + sequence
 
     if (previousExtendedId === extended_id ) {
         // old QR code re-read
-        //console.log("(reread of " + previousExtendedId + ")")
+        console.log("(reread of " + previousExtendedId + ")")
     } else {
         console.log( sequence + " extended_id: " + extended_id  )
 
-        if (REEL === "OUP") {
+        if (MODE === "OUP") {
             let numTestCodes = reelIds.length
             if (sequence > numTestCodes) {
                 let n = reelIds.indexOf(extended_id) + 1 // number on the reel
@@ -151,13 +131,13 @@ function processData(data) {
                     if (code1 >  0) {
                         let t = micros()
                         let rotationTimeUS = t - code1 
-                        console.log(colors.blue((rotationTimeUS/1e6).toFixed(2) + " s/rotation "
+                        console.log((rotationTimeUS/1e6).toFixed(2) + " s/rotation "
                          + (reelCircumference/(rotationTimeUS/1e6)).toFixed(2) + " m/s " + 
-                         + ((rotationTimeUS/1e3)/numTestCodes).toFixed(2) + " ms/code ")) 
+                         + ((rotationTimeUS/1e3)/numTestCodes).toFixed(2) + " ms/code ") 
                     
                         if (codes[sequence-1-numTestCodes] !== extended_id) {
-                            console.log(colors.red("ERROR! -------------------------------------------------------> " + codes[sequence-1-numTestCodes]))
-                            console.log(colors.red("DOES NOT MATCH -----------------------------------------------> " + extended_id))
+                            console.log("ERROR! -------------------------------------------------------> " + codes[sequence-1-numTestCodes])
+                            console.log("DOES NOT MATCH -----------------------------------------------> " + extended_id)
 
                         }
                         code1 = t
@@ -174,9 +154,10 @@ function processData(data) {
         sequence++;
     
         if (qr.length != 48) { 
-            console.log(colors.red("ERROR : BAD QR READ: " + qr + "(length " + qr.length + ")"))
+            console.log("ERROR : BAD QR READ: " + qr + "(length " + qr.length + ")")
         } else {
             fs.appendFileSync(scanFile,  line + "\n")
         }
+        
     }
-}
+})

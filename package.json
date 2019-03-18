@@ -3,6 +3,8 @@
   "name": "inline-reader",
   "scripts": {
     "start": "node index.js",
+    "start-serial": "node index.serial.js",
+
     "start-rust": "./serialread-rs /dev/tty.usbmodem18173B6DE11 115200 2>&1 | tee scans.txt",
     "showport": "ioreg -p IOUSB -l -b | grep -E \"@|PortNum|USB Serial Number\"; ls /dev/tty.usbmodem18173B6DE11",
     "ports": "serialport-terminal -l",
@@ -15,6 +17,7 @@
     "command-line-usage": "^5.0.5",
     "commander": "^2.19.0",
     "moment": "^2.23.0",
+    "net": "^1.0.2",
     "serialport": "^7.1.0"
   }
 }
