@@ -99,7 +99,6 @@ const stamp = () => moment().format("HH:mm.ss.SS")
 let sequence = 1
 let code1 = 0;
 let codes = [];
-let previousExtendedId = ""
 
 // write the header to the scans.csv
 fs.appendFileSync(scanFile, csv_header)
@@ -112,13 +111,14 @@ port.flush( () => {
 
 parser.on('data', data => {
    // deb(data)
+    console.log('DATA: ' + data)
     const qr = new String(data).trim().replace("\u0002","")
     const extended_id = getExtendedId(qr)
     const line = micros() + delimiter + qr + delimiter + extended_id + delimiter + sequence
 
-    if (previousExtendedId === extended_id ) {
+    if (codes.indexOf(extended_id) >= 0) {
         // old QR code re-read
-        console.log("(reread of " + previousExtendedId + ")")
+        console.log("(reread of " + extended_id + ")")
     } else {
         console.log( sequence + " extended_id: " + extended_id  )
 
@@ -148,8 +148,6 @@ parser.on('data', data => {
                 }
             }
         }
-
-        previousExtendedId = extended_id
         codes.push(extended_id)
         sequence++;
     
